@@ -257,12 +257,13 @@ class WikipediaKeywordFetcher:
         return random.sample(keywords, count)
 
 
-def update_words_file(force_refresh=False):
+def update_words_file(force_refresh=False, keyword_count=100):
     """
     Update words.txt file with fresh keywords.
     
     Args:
         force_refresh (bool): Force refresh even if cache is valid
+        keyword_count (int): Number of keywords to fetch
     """
     print("\n" + "="*60)
     print("Updating Search Keywords")
@@ -272,7 +273,7 @@ def update_words_file(force_refresh=False):
     cache_file = os.path.join(script_dir, 'search_cache.json')
     
     fetcher = WikipediaKeywordFetcher(cache_file=cache_file)
-    keywords = fetcher.get_keywords(count=100, force_refresh=force_refresh)
+    keywords = fetcher.get_keywords(count=keyword_count, force_refresh=force_refresh)
     
     # Save to words.txt (REPLACE old content)
     try:

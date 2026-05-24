@@ -15,6 +15,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from search_history import SearchHistoryTracker
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from settings import SettingsManager
 
 
 class EdgeSearchBot:
@@ -41,6 +43,10 @@ class EdgeSearchBot:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         history_file = os.path.join(script_dir, 'search_history.json')
         self.history_tracker = SearchHistoryTracker(history_file)
+        
+        # Initialize settings manager
+        settings_file = os.path.join(script_dir, 'settings.json')
+        self.settings = SettingsManager(settings_file)
         
     def setup_driver(self):
         """Set up and configure the Edge WebDriver."""
@@ -82,9 +88,8 @@ class EdgeSearchBot:
             print("→ Setting up Edge driver...")
             print("→ Loading Microsoft profile...")
             
-            # Use the Edge driver in the current directory
-            driver_path = os.path.join(os.path.dirname(__file__), '..', 'msedgedriver.exe')
-            service = Service(driver_path)
+            # Use webdriver-manager to auto-download correct driver version
+            service = Service(EdgeChromiumDriverManager().install())
             self.driver = webdriver.Edge(service=service, options=edge_options)
             
             print("✓ Microsoft Edge browser initialized successfully!")
@@ -138,15 +143,15 @@ class EdgeSearchBot:
         except Exception as e:
             print(f"✗ Error performing search: {e}")
     
-    def run(self, word_list, delay_between_searches=3, pc_count=34, mobile_count=24):
+    def run(self, word_list, delay_between_searches=3, pc_count=None, mobile_count=None):
         """
         Run the bot to perform searches for random words from the list.
         
         Args:
             word_list (list): Word list to search (required)
             delay_between_searches (int): Delay in seconds between searches
-            pc_count (int): Number of searches for PC mode (default: 34)
-            mobile_count (int): Number of searches for mobile mode (default: 24)
+            pc_count (int): Number of searches for PC mode (default: from settings)
+            mobile_count (int): Number of searches for mobile mode (default: from settings)
         """
         if not self.setup_driver():
             print("✗ Failed to initialize browser. Exiting...")
@@ -155,6 +160,12 @@ class EdgeSearchBot:
         if not word_list:
             print("✗ Error: No words to search. Please add words to words.txt file.")
             return
+        
+        # Use settings if counts not provided
+        if pc_count is None:
+            pc_count = self.settings.get_profile_pc_count(self.profile_name)
+        if mobile_count is None:
+            mobile_count = self.settings.get_profile_mobile_count(self.profile_name)
         
         # Filter out already searched keywords for this profile
         unsearched_keywords = self.history_tracker.filter_unsearched_keywords(self.profile_name, word_list)
@@ -253,7 +264,7 @@ def load_word_list_from_file(filename='words.txt'):
             script_dir = os.path.dirname(os.path.abspath(__file__))
             filename = os.path.join(script_dir, filename)
         
-        with open(filename, 'r') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             words = [line.strip() for line in f if line.strip()]
         return words
     except FileNotFoundError:

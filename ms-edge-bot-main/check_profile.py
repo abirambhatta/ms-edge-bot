@@ -3,9 +3,11 @@ Quick script to check which Edge profile has Microsoft Rewards signed in
 """
 
 import time
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.options import Options
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 import os
 
 def check_profile(profile_name):
@@ -26,12 +28,11 @@ def check_profile(profile_name):
         edge_options.add_argument('--remote-debugging-port=9222')
         edge_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         
-        driver_path = os.path.join(os.path.dirname(__file__), '..', 'msedgedriver.exe')
-        service = Service(driver_path)
+        service = Service(EdgeChromiumDriverManager().install())
         driver = webdriver.Edge(service=service, options=edge_options)
         
-        print(f"✓ Browser opened with profile: {profile_name}")
-        print("→ Navigating to Microsoft Rewards...")
+        print(f"[OK] Browser opened with profile: {profile_name}")
+        print("-> Navigating to Microsoft Rewards...")
         
         # Navigate to Rewards page
         driver.get('https://rewards.bing.com/')
@@ -49,10 +50,25 @@ def check_profile(profile_name):
         input("\nPress Enter to close browser and try next profile...")
         
         driver.quit()
-        print(f"✓ Browser closed\n")
+        print(f"[OK] Browser closed")
+        
+        # Force kill all Edge processes to ensure clean state
+        print("-> Killing all Edge processes...")
+        subprocess.run(['taskkill', '/F', '/IM', 'msedge.exe'], 
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(['taskkill', '/F', '/IM', 'msedgedriver.exe'], 
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(2)  # Wait for processes to fully terminate
+        print("[OK] All Edge processes killed\n")
         
     except Exception as e:
-        print(f"✗ Error: {e}\n")
+        print(f"[ERROR] Error: {e}\n")
+        # Try to kill processes even on error
+        subprocess.run(['taskkill', '/F', '/IM', 'msedge.exe'], 
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(['taskkill', '/F', '/IM', 'msedgedriver.exe'], 
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(2)
 
 
 def main():
@@ -60,8 +76,12 @@ def main():
     print("Microsoft Edge Profile Checker")
     print("This will help you find which profile has Rewards signed in")
     print("="*60)
+    print("\n⚠️  IMPORTANT: Close Microsoft Edge before running this!")
+    print("   (The script cannot access profiles while Edge is running)\n")
     
-    profiles = ['Default', 'Profile 1', 'Profile 2']
+    input("Press Enter when Edge is closed...")
+    
+    profiles = ['Default', 'Profile 1', 'Profile 2', 'Profile 4']
     
     for profile in profiles:
         check_profile(profile)

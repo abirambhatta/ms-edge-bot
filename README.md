@@ -1,131 +1,144 @@
-# Microsoft Edge Search Bot - Enhanced Version
+# Microsoft Edge Search Automator
 
-## 🚀 New Features
+A GUI automation tool for running Microsoft Edge Rewards searches across multiple profiles.
 
-### Automatic Keyword Fetching
-- Fetches **100 trending topics** from Wikipedia API automatically
-- Keywords are cached and auto-refresh every **18 hours**
-- Random keyword selection for each search session
-- **PC Mode**: Uses 34 random keywords
-- **Mobile Mode**: Uses 24 random keywords
+## Requirements
 
-### GUI Application
-- Easy-to-use graphical interface
-- Real-time activity logs
-- Individual profile controls (Default, Profile 1, Profile 2)
-- Batch operations for all profiles
-- Manual keyword update button
+- **Windows 10 or 11**
+- **Python 3.11+** — if not installed, `setup.bat` will install it automatically
 
-## 📦 Setup
+---
 
-1. **Run setup** (one time):
-   ```
-   setup.bat
-   ```
+## Setup (One Time)
 
-2. **Launch the GUI**:
-   ```
-   run_gui.bat
-   ```
+Just double-click:
 
-## 🎮 GUI Features
-
-### Individual Profile Controls
-For each profile (Default, Profile 1, Profile 2):
-- **PC + Mobile**: Runs PC search (34 keywords) then Mobile search (24 keywords)
-- **PC Only**: Runs only PC search (34 keywords)
-- **Mobile Only**: Runs only mobile search (24 keywords)
-
-### Run All Profiles
-- **Run All (PC + Mobile)**: Executes PC + Mobile for all 3 profiles sequentially
-- **Run All (PC Only)**: Executes PC search for all 3 profiles
-- **Run All (Mobile Only)**: Executes Mobile search for all 3 profiles
-
-### Update Keywords Button
-- Click "🔄 Update Keywords" to fetch fresh topics from Wikipedia
-- Automatically updates if cache is older than 18 hours
-- Shows keyword count and search limits
-
-## 📁 Files
-
-- `gui.py` - Main GUI application
-- `edge_search_bot.py` - Core bot logic
-- `keyword_fetcher.py` - Wikipedia API integration
-- `check_profile.py` - Profile checker utility
-- `words.txt` - Cached keywords (auto-generated)
-- `search_cache.json` - Keyword cache with timestamp
-
-## 🔧 Manual Operations
-
-### Update Keywords Manually
 ```
-update_keywords.bat
+setup.bat
 ```
 
-### Check Edge Profiles
+This will:
+1. Check if Python is installed — if not, it installs it automatically via Windows Package Manager (`winget`)
+2. Create a virtual environment (`.venv`)
+3. Install all required dependencies
+
+If your system doesn't support `winget` (older Windows), it will display a direct link to download Python manually.
+
+---
+
+## Launch
+
 ```
-check_profile.bat
+run_gui.bat
 ```
 
-### Run Bot via Command Line
-```
-.venv\Scripts\activate
-python ms-edge-bot-main\edge_search_bot.py --profile "Default" --mobile
-```
+---
 
-## 🎯 How It Works
+## GUI Overview
 
-1. **Keyword Fetching**:
-   - Fetches trending articles from Wikipedia's "Most Read" API
-   - Supplements with random Wikipedia articles
-   - Falls back to curated tech topics if API fails
-   - Saves to cache with timestamp
+### Left Panel — Run Controls
 
-2. **Random Selection**:
-   - Each search session randomly selects keywords
-   - PC mode: 34 random keywords from the 100 available
-   - Mobile mode: 24 random keywords from the 100 available
-   - No duplicate searches in the same session
+- **Run All (PC + Mobile / PC Only / Mobile Only)** — runs searches across all profiles in one click
+- **Individual Profiles** — run searches per profile with three modes: Both, PC, Mobile
+- **Remove** button on each profile card to instantly remove it from the list
+- **Stop Run** button to cancel any running session
+- **Status indicator** showing current state (Ready / Running / Stopped / etc.)
 
-3. **Auto-Update**:
-   - Checks cache age on GUI startup
-   - Auto-updates if older than 18 hours
-   - Manual update available via button
+### Right Panel — Tabs
 
-## 📊 Search Counts
+#### Activity Log
+- Real-time log output from all running sessions
+- **Clear** button to wipe the log
 
-- **Total Keywords**: 100 (fetched from Wikipedia)
-- **PC Searches**: 34 random keywords per session
-- **Mobile Searches**: 24 random keywords per session
-- **Cache Duration**: 18 hours
+#### Settings
+- **Global Settings**:
+  - Wikipedia API Keywords — how many keywords to fetch (default: 100)
+  - PC Searches per Profile — default PC count (default: 34)
+  - Mobile Searches per Profile — default mobile count (default: 24)
+  - All Save buttons ask for confirmation before applying
+- **Per-Profile Settings**:
+  - Override global defaults for individual profiles
+  - Each profile can have its own PC and mobile search count
 
-## 🛠️ Troubleshooting
+### Toolbar Buttons
 
-### Keywords Not Updating
-- Click "🔄 Update Keywords" button in GUI
-- Or run: `update_keywords.bat`
-- Check internet connection
+| Button | Action |
+|---|---|
+| Close Edge | Force-close all Edge windows |
+| Check Profiles | Open each Edge profile to verify Rewards login |
+| Clear History | Reset search history for all profiles |
+| Add Profile | Add a new Edge profile to the list |
+| Update Keywords | Fetch fresh trending topics from Wikipedia |
 
-### Bot Not Finding Keywords
-- Ensure `words.txt` exists in `ms-edge-bot-main` folder
-- Run `update_keywords.bat` to regenerate
+---
 
-### Profile Issues
-- Run `check_profile.bat` to verify which profile has Rewards signed in
-- Use the correct profile name in GUI
+## How It Works
 
-## 📝 Notes
+1. **Keywords** are fetched from Wikipedia's "Most Read" API and cached in `search_cache.json`
+2. The cache is automatically refreshed on startup if older than **18 hours**
+3. Each search session randomly selects keywords from the pool
+4. **Search history** is tracked per profile in `search_history.json` to prevent duplicate searches
+5. Settings are saved to `settings.json` and persist across sessions
 
-- Keywords are randomized for each search session
-- Cache automatically refreshes every 18 hours
-- All searches use human-like typing delays
-- Supports headless mode (via command line)
-- Logs all activity in real-time
+---
 
-## 🎉 Quick Start
+## Files
 
-1. Double-click `setup.bat`
-2. Double-click `run_gui.bat`
-3. Click any button to start searching!
+| File | Description |
+|---|---|
+| `gui.py` | Main GUI application |
+| `edge_search_bot.py` | Core Selenium automation logic |
+| `keyword_fetcher.py` | Wikipedia API integration |
+| `settings.py` | Persistent settings manager |
+| `search_history.py` | Per-profile search history tracker |
+| `profile_manager.py` | Profile list management |
+| `check_profile.py` | Profile checker utility |
+| `words.txt` | Cached keywords (auto-generated) |
+| `search_cache.json` | Keyword cache with timestamp |
+| `settings.json` | User settings (auto-generated) |
+| `search_history.json` | Search history per profile (auto-generated) |
 
-The bot will automatically fetch fresh keywords from Wikipedia and start searching with random selections!
+---
+
+## Default Settings
+
+| Setting | Default |
+|---|---|
+| Total Keywords | 100 |
+| PC Searches per Profile | 34 |
+| Mobile Searches per Profile | 24 |
+| Cache Duration | 18 hours |
+
+---
+
+## Troubleshooting
+
+**Python not found after auto-install**
+- Close `setup.bat` and run it again — the new window will pick up the updated PATH
+
+**Keywords not updating**
+- Click "Update Keywords" in the GUI toolbar
+- Check your internet connection
+- Or run `update_keywords.bat` manually
+
+**Bot not launching / profile errors**
+- Click "Close Edge" first to close all Edge windows
+- Click "Check Profiles" to verify which profiles have Rewards signed in
+- Make sure the profile name matches exactly (e.g. `Default`, `Profile 1`)
+
+**Settings not saving**
+- Ensure write permissions on the `ms-edge-bot-main` folder
+- Check that `settings.json` is not open in another program
+
+**Search history / duplicates**
+- Click "Clear History" in the toolbar to reset all search history
+- This allows re-searching the same keywords again
+
+---
+
+## Quick Start
+
+1. Double-click `setup.bat` — Python and all dependencies will be installed automatically
+2. Double-click `run_gui.bat` to open the app
+3. (Optional) Go to the Settings tab to customize search counts
+4. Click any run button to start searching
