@@ -88,9 +88,30 @@ class EdgeSearchBot:
             print("→ Setting up Edge driver...")
             print("→ Loading Microsoft profile...")
             
-            # Use webdriver-manager to auto-download correct driver version
-            service = Service(EdgeChromiumDriverManager().install())
-            self.driver = webdriver.Edge(service=service, options=edge_options)
+            # Try multiple ways to initialize the driver to prevent network/offline issues
+            self.driver = None
+            
+            # Method 1: Try local msedgedriver.exe first if it exists (offline friendly)
+            local_driver_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'msedgedriver.exe')
+            
+            if os.path.exists(local_driver_path):
+                try:
+                    service = Service(local_driver_path)
+                    self.driver = webdriver.Edge(service=service, options=edge_options)
+                except Exception:
+                    pass
+            
+            # Method 2: Try webdriver_manager
+            if self.driver is None:
+                try:
+                    service = Service(EdgeChromiumDriverManager().install())
+                    self.driver = webdriver.Edge(service=service, options=edge_options)
+                except Exception as e:
+                    if "offline" in str(e).lower() or "reach host" in str(e).lower():
+                        # Fallback to native Selenium Manager
+                        self.driver = webdriver.Edge(options=edge_options)
+                    else:
+                        raise e
             
             print("✓ Microsoft Edge browser initialized successfully!")
             return True

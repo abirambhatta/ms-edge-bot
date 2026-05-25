@@ -28,8 +28,30 @@ def check_profile(profile_name):
         edge_options.add_argument('--remote-debugging-port=9222')
         edge_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         
-        service = Service(EdgeChromiumDriverManager().install())
-        driver = webdriver.Edge(service=service, options=edge_options)
+        # Try multiple ways to initialize the driver to prevent network/offline issues
+        driver = None
+        
+        # Method 1: Try local msedgedriver.exe first if it exists (offline friendly)
+        local_driver_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'msedgedriver.exe')
+        
+        if os.path.exists(local_driver_path):
+            try:
+                service = Service(local_driver_path)
+                driver = webdriver.Edge(service=service, options=edge_options)
+            except Exception:
+                pass
+                
+        # Method 2: Try webdriver_manager
+        if driver is None:
+            try:
+                service = Service(EdgeChromiumDriverManager().install())
+                driver = webdriver.Edge(service=service, options=edge_options)
+            except Exception as e:
+                if "offline" in str(e).lower() or "reach host" in str(e).lower():
+                    # Fallback to native Selenium Manager
+                    driver = webdriver.Edge(options=edge_options)
+                else:
+                    raise e
         
         print(f"[OK] Browser opened with profile: {profile_name}")
         print("-> Navigating to Microsoft Rewards...")
