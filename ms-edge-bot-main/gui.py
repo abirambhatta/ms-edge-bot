@@ -21,14 +21,17 @@ ctk.set_default_color_theme("blue")
 
 
 class LogRedirector:
-    """Redirect stdout to the GUI log widget."""
-    def __init__(self, text_widget):
+    """Redirect stdout to the GUI log widget in a thread-safe way."""
+    def __init__(self, text_widget, root):
         self.text_widget = text_widget
+        self.root = root
         
     def write(self, message):
+        self.root.after(0, self._write_safe, message)
+        
+    def _write_safe(self, message):
         self.text_widget.insert("end", message)
         self.text_widget.see("end")
-        self.text_widget.update()
         
     def flush(self):
         pass
@@ -160,7 +163,7 @@ class EdgeBotGUI:
         
         self.log_text = ctk.CTkTextbox(log_tab, font=ctk.CTkFont(family="Consolas", size=12), wrap="word")
         self.log_text.grid(row=1, column=0, sticky="nsew")
-        self.log_redirector = LogRedirector(self.log_text)
+        self.log_redirector = LogRedirector(self.log_text, self.root)
         
         self.log("Microsoft Edge Search Automator initialized")
         self.log(f"Loaded {len(self.word_list)} search terms")
@@ -449,12 +452,12 @@ class EdgeBotGUI:
         self.log_text.delete("1.0", "end")
 
     def set_status(self, message, color='#10b981'):
-        self.status_indicator.configure(text=message, text_color=color)
+        self.root.after(0, lambda: self.status_indicator.configure(text=message, text_color=color))
 
     def stop_search(self):
         self.stop_flag = True
         self.log("Stop requested...")
-        self.stop_btn.configure(state="disabled")
+        self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
         self.set_status("Stopping...", "#f59e0b")
 
     def run_search(self, profile, mode):
@@ -470,7 +473,7 @@ class EdgeBotGUI:
     def _execute_search(self, profile, mode):
         self.running = True
         self.stop_flag = False
-        self.stop_btn.configure(state="normal")
+        self.root.after(0, lambda: self.stop_btn.configure(state="normal"))
         old_stdout = sys.stdout
         sys.stdout = self.log_redirector
         
@@ -498,12 +501,12 @@ class EdgeBotGUI:
         finally:
             sys.stdout = old_stdout
             self.running = False
-            self.stop_btn.configure(state="disabled")
+            self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
 
     def _execute_all_profiles(self, mode):
         self.running = True
         self.stop_flag = False
-        self.stop_btn.configure(state="normal")
+        self.root.after(0, lambda: self.stop_btn.configure(state="normal"))
         old_stdout = sys.stdout
         sys.stdout = self.log_redirector
         
@@ -535,7 +538,7 @@ class EdgeBotGUI:
         finally:
             sys.stdout = old_stdout
             self.running = False
-            self.stop_btn.configure(state="disabled")
+            self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
 
 def main():
     root = ctk.CTk()

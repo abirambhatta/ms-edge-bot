@@ -6,7 +6,13 @@ This bot opens Microsoft Edge browser and performs word searches.
 import time
 import random
 import os
+import sys
 import argparse
+
+# Force UTF-8 encoding for standard output to avoid UnicodeEncodeError on Windows
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.options import Options
@@ -51,15 +57,55 @@ class EdgeSearchBot:
     def setup_driver(self):
         """Set up and configure the Edge WebDriver."""
         try:
+            # Ensure Edge is fully closed before starting to prevent profile lock hangs
+            import subprocess
+            import shutil
+            import tempfile
+            print("→ Ensuring Microsoft Edge is closed...")
+            try:
+                for _ in range(3):
+                    subprocess.run(['taskkill', '/F', '/IM', 'msedge.exe'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(1)
+                time.sleep(1)
+            except Exception:
+                pass
+            
+            # Copy essential profile files to a temp directory.
+            # Using the real Edge user-data-dir causes "DevToolsActivePort" crashes
+            # because Edge's internal lock files prevent WebDriver from starting.
+            # Copying just cookies/login data to a clean temp dir avoids this
+            # while preserving the user's Microsoft login session.
+            real_user_data_dir = os.path.join(os.getenv('LOCALAPPDATA'), 'Microsoft', 'Edge', 'User Data')
+            temp_dir = os.path.join(tempfile.gettempdir(), 'edge_bot_profile')
+            
+            # Clean up any previous temp profile
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Copy essential profile files that contain login/cookie data
+            src_profile = os.path.join(real_user_data_dir, self.profile_name)
+            dst_profile = os.path.join(temp_dir, self.profile_name)
+            os.makedirs(dst_profile, exist_ok=True)
+            
+            essential_files = ['Cookies', 'Login Data', 'Preferences', 'Secure Preferences', 'Web Data']
+            for f in essential_files:
+                src = os.path.join(src_profile, f)
+                if os.path.exists(src):
+                    shutil.copy2(src, os.path.join(dst_profile, f))
+            
+            # Copy Local State (needed for encrypted cookie decryption)
+            local_state = os.path.join(real_user_data_dir, 'Local State')
+            if os.path.exists(local_state):
+                shutil.copy2(local_state, os.path.join(temp_dir, 'Local State'))
+            
+            print(f"→ Using profile: {self.profile_name}")
+                    
             edge_options = Options()
             
-            # Windows Edge user data directory
-            user_data_dir = os.path.join(os.getenv('LOCALAPPDATA'), 'Microsoft', 'Edge', 'User Data')
-            edge_options.add_argument(f'--user-data-dir={user_data_dir}')
-            
-            # Use the specified profile
+            # Use the temp copy of the profile
+            edge_options.add_argument(f'--user-data-dir={temp_dir}')
             edge_options.add_argument(f'--profile-directory={self.profile_name}')
-            print(f"→ Using profile: {self.profile_name}")
             
             # Mobile mode - simulate mobile browser
             if self.mobile:
@@ -81,37 +127,30 @@ class EdgeSearchBot:
             edge_options.add_argument('--disable-blink-features=AutomationControlled')
             edge_options.add_argument('--disable-dev-shm-usage')
             edge_options.add_argument('--no-sandbox')
-            edge_options.add_argument('--remote-debugging-port=9222')
             edge_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
             edge_options.add_experimental_option('useAutomationExtension', False)
             
             print("→ Setting up Edge driver...")
             print("→ Loading Microsoft profile...")
             
-            # Try multiple ways to initialize the driver to prevent network/offline issues
-            self.driver = None
-            
-            # Method 1: Try local msedgedriver.exe first if it exists (offline friendly)
+            # Find the driver path (local first, then fallback)
             local_driver_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'msedgedriver.exe')
             
+            driver_path = None
             if os.path.exists(local_driver_path):
+                driver_path = local_driver_path
+            else:
                 try:
-                    service = Service(local_driver_path)
-                    self.driver = webdriver.Edge(service=service, options=edge_options)
+                    driver_path = EdgeChromiumDriverManager().install()
                 except Exception:
                     pass
             
-            # Method 2: Try webdriver_manager
-            if self.driver is None:
-                try:
-                    service = Service(EdgeChromiumDriverManager().install())
-                    self.driver = webdriver.Edge(service=service, options=edge_options)
-                except Exception as e:
-                    if "offline" in str(e).lower() or "reach host" in str(e).lower():
-                        # Fallback to native Selenium Manager
-                        self.driver = webdriver.Edge(options=edge_options)
-                    else:
-                        raise e
+            # Launch the driver
+            if driver_path:
+                service = Service(driver_path)
+                self.driver = webdriver.Edge(service=service, options=edge_options)
+            else:
+                self.driver = webdriver.Edge(options=edge_options)
             
             print("✓ Microsoft Edge browser initialized successfully!")
             return True
@@ -153,7 +192,7 @@ class EdgeSearchBot:
             time.sleep(random.uniform(0.3, 0.7))
             
             # Submit the search
-            search_box.send_keys(Keys.RETURN)
+            search_box.submit()
             
             # Wait for results to load
             wait.until(EC.presence_of_element_located((By.ID, 'b_results')))
