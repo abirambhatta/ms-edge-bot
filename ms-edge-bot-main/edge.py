@@ -170,13 +170,18 @@ def open_browser(profile: str, mobile: bool = False, headless: bool = False,
         options.add_argument(f"--user-data-dir={workdir}")
         options.add_argument(f"--profile-directory={profile}")
         options.add_argument("--disable-blink-features=AutomationControlled")
+        # The copy has no extension files, so extensions would only fail and spam the console.
+        options.add_argument("--disable-extensions")
+        options.add_argument("--log-level=3")  # Edge: fatal errors only
         options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
         if mobile:
             options.add_argument(f"--user-agent={_mobile_user_agent()}")
             options.add_argument("--window-size=412,915")
         if headless:
             options.add_argument("--headless=new")
-        driver = webdriver.Edge(service=Service(str(driver_path)), options=options)
+        # Edge inherits the driver's output streams; send both to nowhere.
+        service = Service(str(driver_path), log_output=subprocess.DEVNULL)
+        driver = webdriver.Edge(service=service, options=options)
         yield driver
     finally:
         if driver is not None:
