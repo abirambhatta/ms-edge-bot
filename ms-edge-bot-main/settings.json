@@ -2,18 +2,11 @@
   "api_keyword_count": 100,
   "global_pc_count": 34,
   "global_mobile_count": 24,
-  "profile_settings": {
-    "Profile 4": {
-      "pc_count": 34
-    },
-    "Default": {
-      "pc_count": 34
-    },
-    "Profile 1": {
-      "pc_count": 34
-    },
-    "Profile 2": {
-      "pc_count": 34
-    }
-  }
+  "profile_settings": {},
+  "profiles": [
+    "Default",
+    "Profile 1",
+    "Profile 2",
+    "Profile 4"
+  ]
 }

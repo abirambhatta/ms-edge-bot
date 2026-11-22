@@ -1,109 +1,92 @@
-"""
-Settings Manager for Edge Search Bot
-"""
+"""User settings, persisted to settings.json: search counts and which Edge profiles to run."""
+
+from __future__ import annotations
 
 import json
-import os
+from pathlib import Path
+
+DEFAULTS = {
+    "api_keyword_count": 100,
+    "global_pc_count": 34,
+    "global_mobile_count": 24,
+    "profiles": ["Default"],
+    "profile_settings": {},  # {"Profile 1": {"pc_count": 30, "mobile_count": 20}}
+}
 
 
-class SettingsManager:
-    """Manage bot settings with JSON persistence."""
-    
-    def __init__(self, settings_file='settings.json'):
-        self.settings_file = settings_file
-        self.default_settings = {
-            'api_keyword_count': 100,
-            'global_pc_count': 34,
-            'global_mobile_count': 24,
-            'profile_settings': {}
-        }
-        self.settings = self.load_settings()
-    
-    def load_settings(self):
-        """Load settings from file or create defaults."""
+class Settings:
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.data = {**DEFAULTS, **self._load()}
+        self._migrate_profiles_file()
+
+    def _load(self) -> dict:
         try:
-            if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r', encoding='utf-8') as f:
-                    loaded = json.load(f)
-                    # Merge with defaults to ensure all keys exist
-                    settings = self.default_settings.copy()
-                    settings.update(loaded)
-                    return settings
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-        return self.default_settings.copy()
-    
-    def save_settings(self):
-        """Save settings to file."""
+            return json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def _migrate_profiles_file(self) -> None:
+        """Older versions kept the profile list in a separate profiles.json."""
+        legacy = self.path.with_name("profiles.json")
+        if "profiles" in self._load() or not legacy.exists():
+            return
         try:
-            with open(self.settings_file, 'w', encoding='utf-8') as f:
-                json.dump(self.settings, f, indent=2)
-            return True
-        except Exception as e:
-            print(f"Error saving settings: {e}")
-            return False
-    
-    def get_api_keyword_count(self):
-        """Get API keyword count."""
-        return self.settings.get('api_keyword_count', 100)
-    
-    def set_api_keyword_count(self, count):
-        """Set API keyword count."""
-        self.settings['api_keyword_count'] = count
-        self.save_settings()
-    
-    def get_global_pc_count(self):
-        """Get global PC search count."""
-        return self.settings.get('global_pc_count', 34)
-    
-    def set_global_pc_count(self, count):
-        """Set global PC search count."""
-        self.settings['global_pc_count'] = count
-        self.save_settings()
-    
-    def get_global_mobile_count(self):
-        """Get global mobile search count."""
-        return self.settings.get('global_mobile_count', 24)
-    
-    def set_global_mobile_count(self, count):
-        """Set global mobile search count."""
-        self.settings['global_mobile_count'] = count
-        self.save_settings()
-    
-    def get_profile_pc_count(self, profile):
-        """Get PC count for specific profile (falls back to global)."""
-        profile_settings = self.settings.get('profile_settings', {})
-        if profile in profile_settings and 'pc_count' in profile_settings[profile]:
-            return profile_settings[profile]['pc_count']
-        return self.get_global_pc_count()
-    
-    def get_profile_mobile_count(self, profile):
-        """Get mobile count for specific profile (falls back to global)."""
-        profile_settings = self.settings.get('profile_settings', {})
-        if profile in profile_settings and 'mobile_count' in profile_settings[profile]:
-            return profile_settings[profile]['mobile_count']
-        return self.get_global_mobile_count()
-    
-    def set_profile_pc_count(self, profile, count):
-        """Set PC count for specific profile."""
-        if 'profile_settings' not in self.settings:
-            self.settings['profile_settings'] = {}
-        if profile not in self.settings['profile_settings']:
-            self.settings['profile_settings'][profile] = {}
-        self.settings['profile_settings'][profile]['pc_count'] = count
-        self.save_settings()
-    
-    def set_profile_mobile_count(self, profile, count):
-        """Set mobile count for specific profile."""
-        if 'profile_settings' not in self.settings:
-            self.settings['profile_settings'] = {}
-        if profile not in self.settings['profile_settings']:
-            self.settings['profile_settings'][profile] = {}
-        self.settings['profile_settings'][profile]['mobile_count'] = count
-        self.save_settings()
-    
-    def clear_profile_settings(self, profile):
-        """Clear custom settings for a profile (revert to global)."""
-        if 'profile_settings' in self.settings and profile in self.settings['profile_settings']:
-            del self.settings['profile_settings'][profile]
-            self.save_settings()
+            self.data["profiles"] = json.loads(legacy.read_text(encoding="utf-8"))["profiles"]
+            self.save()
+            legacy.unlink()
+        except (OSError, ValueError, KeyError):
+            pass
+
+    def save(self) -> None:
+        self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+
+    # ── Keywords ──
+    @property
+    def keyword_count(self) -> int:
+        return self.data["api_keyword_count"]
+
+    @keyword_count.setter
+    def keyword_count(self, n: int) -> None:
+        self.data["api_keyword_count"] = n
+
+    # ── Search counts ──
+    def default_count(self, mobile: bool) -> int:
+        return self.data["global_mobile_count" if mobile else "global_pc_count"]
+
+    def set_default_count(self, mobile: bool, n: int) -> None:
+        self.data["global_mobile_count" if mobile else "global_pc_count"] = n
+
+    def override(self, profile: str, mobile: bool) -> int | None:
+        key = "mobile_count" if mobile else "pc_count"
+        return self.data["profile_settings"].get(profile, {}).get(key)
+
+    def set_override(self, profile: str, mobile: bool, n: int | None) -> None:
+        """Set a per-profile count; None (or the default value) removes the override."""
+        key = "mobile_count" if mobile else "pc_count"
+        overrides = self.data["profile_settings"].setdefault(profile, {})
+        if n is None or n == self.default_count(mobile):
+            overrides.pop(key, None)
+        else:
+            overrides[key] = n
+        if not overrides:
+            del self.data["profile_settings"][profile]
+
+    def target(self, profile: str, mobile: bool) -> int:
+        """How many searches `profile` should do per day in this mode."""
+        o = self.override(profile, mobile)
+        return self.default_count(mobile) if o is None else o
+
+    # ── Profiles ──
+    @property
+    def profiles(self) -> list[str]:
+        return list(self.data["profiles"])
+
+    def add_profile(self, folder: str) -> None:
+        if folder not in self.data["profiles"]:
+            self.data["profiles"].append(folder)
+
+    def remove_profile(self, folder: str) -> None:
+        if folder in self.data["profiles"]:
+            self.data["profiles"].remove(folder)
+        self.data["profile_settings"].pop(folder, None)

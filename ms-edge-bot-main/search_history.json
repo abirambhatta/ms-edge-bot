@@ -565,9 +565,17 @@
       "Clionella vilma",
       "This Is My Country",
       "Timeline of Ibadan",
-      "Creach-Beinn (Mull)"
+      "Creach-Beinn (Mull)",
+      "Tao Zongyi",
+      "Laser Standard"
     ],
-    "last_updated": "2026-08-26T18:20:43.367925"
+    "last_updated": "2026-11-22T17:23:30",
+    "daily": {
+      "2026-11-22": {
+        "pc": 1,
+        "mobile": 0
+      }
+    }
   },
   "Profile 1": {
     "searched": [

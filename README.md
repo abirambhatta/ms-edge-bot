@@ -1,144 +1,71 @@
-# Microsoft Edge Search Automator
+# Edge Searches
 
-A GUI automation tool for running Microsoft Edge Rewards searches across multiple profiles.
+A Windows desktop app that runs a daily quota of Bing searches in each of your Microsoft Edge profiles and shows how far each profile has got today.
+
+> Automated searches are against the Microsoft Rewards terms. Accounts used with this tool can lose points or be suspended.
 
 ## Requirements
 
-- **Windows 10 or 11**
-- **Python 3.11+** — if not installed, `setup.bat` will install it automatically
+- Windows 10 or 11 with Microsoft Edge
+- Python 3.11+ (`setup.bat` installs it with `winget` if it's missing)
 
----
+## Setup and launch
 
-## Setup (One Time)
-
-Just double-click:
-
-```
-setup.bat
-```
-
-This will:
-1. Check if Python is installed — if not, it installs it automatically via Windows Package Manager (`winget`)
-2. Create a virtual environment (`.venv`)
-3. Install all required dependencies
-
-If your system doesn't support `winget` (older Windows), it will display a direct link to download Python manually.
-
----
-
-## Launch
-
-```
-run_gui.bat
-```
-
----
-
-## GUI Overview
-
-### Left Panel — Run Controls
-
-- **Run All (PC + Mobile / PC Only / Mobile Only)** — runs searches across all profiles in one click
-- **Individual Profiles** — run searches per profile with three modes: Both, PC, Mobile
-- **Remove** button on each profile card to instantly remove it from the list
-- **Stop Run** button to cancel any running session
-- **Status indicator** showing current state (Ready / Running / Stopped / etc.)
-
-### Right Panel — Tabs
-
-#### Activity Log
-- Real-time log output from all running sessions
-- **Clear** button to wipe the log
-
-#### Settings
-- **Global Settings**:
-  - Wikipedia API Keywords — how many keywords to fetch (default: 100)
-  - PC Searches per Profile — default PC count (default: 34)
-  - Mobile Searches per Profile — default mobile count (default: 24)
-  - All Save buttons ask for confirmation before applying
-- **Per-Profile Settings**:
-  - Override global defaults for individual profiles
-  - Each profile can have its own PC and mobile search count
-
-### Toolbar Buttons
-
-| Button | Action |
+| Step | Run |
 |---|---|
-| Close Edge | Force-close all Edge windows |
-| Check Profiles | Open each Edge profile to verify Rewards login |
-| Clear History | Reset search history for all profiles |
-| Add Profile | Add a new Edge profile to the list |
-| Update Keywords | Fetch fresh trending topics from Wikipedia |
+| Once | `setup.bat` (creates `.venv` and installs dependencies) |
+| Every time | `run_gui.bat` |
 
----
+## Using the app
 
-## How It Works
+**Today** shows one row per profile with today's PC and mobile progress (for example `12 / 34`). Bars turn green when a profile hits its target.
 
-1. **Keywords** are fetched from Wikipedia's "Most Read" API and cached in `search_cache.json`
-2. The cache is automatically refreshed on startup if older than **18 hours**
-3. Each search session randomly selects keywords from the pool
-4. **Search history** is tracked per profile in `search_history.json` to prevent duplicate searches
-5. Settings are saved to `settings.json` and persist across sessions
+- **Run** on a row, or **Run all profiles**, does only the searches still missing today. Pick *PC and mobile*, *PC only* or *Mobile only* first.
+- **Stop** finishes the current search, then stops.
+- **Check sign-in** opens each profile's Rewards page in the background and marks profiles that aren't signed in.
+- **Refresh keywords** fetches new topics from Wikipedia. This also happens on launch when keywords are older than 18 hours.
 
----
+Running a search or a sign-in check **closes every Edge window**: the app asks first if Edge is open.
+
+**Settings** holds the daily targets (a default plus optional per-profile overrides), which Edge profiles to run, how many keywords to fetch, and a button to clear search history.
+
+## Command line
+
+```
+python ms-edge-bot-main\edge_search_bot.py --profile "Profile 1" [--mobile] [--count N]
+python ms-edge-bot-main\keyword_fetcher.py [count]      # refresh keywords
+python ms-edge-bot-main\edge.py                         # list Edge profiles
+python ms-edge-bot-main\edge.py --update-driver         # same as update_driver.bat
+```
+
+`--profile` takes Edge's folder name (`Default`, `Profile 1`, ...), which can differ from the name Edge shows. `python edge.py` prints both.
+
+## How it works
+
+1. Edge is closed, and the profile's sign-in files (cookies, saved logins, preferences) are copied to a temporary folder. WebDriver can't use a profile Edge has locked.
+2. Edge starts on that copy under `msedgedriver.exe`, types each keyword into Bing with human-like delays (3 s between searches), and waits for results.
+3. Only successful searches are recorded. Each profile skips keywords it has searched before.
+4. The temporary copy, which contains login data, is deleted when the browser closes.
+
+`msedgedriver.exe` must match Edge's major version. The app checks on every run and downloads a matching driver from Microsoft when Edge has updated.
 
 ## Files
 
-| File | Description |
+| File | Purpose |
 |---|---|
-| `gui.py` | Main GUI application |
-| `edge_search_bot.py` | Core Selenium automation logic |
-| `keyword_fetcher.py` | Wikipedia API integration |
-| `settings.py` | Persistent settings manager |
-| `search_history.py` | Per-profile search history tracker |
-| `profile_manager.py` | Profile list management |
-| `check_profile.py` | Profile checker utility |
-| `words.txt` | Cached keywords (auto-generated) |
-| `search_cache.json` | Keyword cache with timestamp |
-| `settings.json` | User settings (auto-generated) |
-| `search_history.json` | Search history per profile (auto-generated) |
-
----
-
-## Default Settings
-
-| Setting | Default |
-|---|---|
-| Total Keywords | 100 |
-| PC Searches per Profile | 34 |
-| Mobile Searches per Profile | 24 |
-| Cache Duration | 18 hours |
-
----
+| `ms-edge-bot-main/gui.py` | Desktop app |
+| `ms-edge-bot-main/edge_search_bot.py` | Search runner and command line |
+| `ms-edge-bot-main/edge.py` | Edge profiles, driver updates, browser launch |
+| `ms-edge-bot-main/keyword_fetcher.py` | Wikipedia keywords (`search_cache.json`) |
+| `ms-edge-bot-main/settings.py` | Targets and profile list (`settings.json`) |
+| `ms-edge-bot-main/search_history.py` | Searched keywords and daily counts (`search_history.json`) |
+| `ms-edge-bot-main/tests/` | Unit tests: `python -m pytest ms-edge-bot-main\tests` |
 
 ## Troubleshooting
 
-**Python not found after auto-install**
-- Close `setup.bat` and run it again — the new window will pick up the updated PATH
-
-**Keywords not updating**
-- Click "Update Keywords" in the GUI toolbar
-- Check your internet connection
-- Or run `update_keywords.bat` manually
-
-**Bot not launching / profile errors**
-- Click "Close Edge" first to close all Edge windows
-- Click "Check Profiles" to verify which profiles have Rewards signed in
-- Make sure the profile name matches exactly (e.g. `Default`, `Profile 1`)
-
-**Settings not saving**
-- Ensure write permissions on the `ms-edge-bot-main` folder
-- Check that `settings.json` is not open in another program
-
-**Search history / duplicates**
-- Click "Clear History" in the toolbar to reset all search history
-- This allows re-searching the same keywords again
-
----
-
-## Quick Start
-
-1. Double-click `setup.bat` — Python and all dependencies will be installed automatically
-2. Double-click `run_gui.bat` to open the app
-3. (Optional) Go to the Settings tab to customize search counts
-4. Click any run button to start searching
+| Problem | Fix |
+|---|---|
+| A profile shows "Not signed in to Rewards" | Open Edge in that profile, sign in at rewards.bing.com, then **Check sign-in** again |
+| "Profile not found in Edge" | The folder in Settings no longer exists. Remove it and add the right one |
+| Driver errors after an Edge update | Run `update_driver.bat` |
+| "Every keyword has been searched" | **Refresh keywords**, or **Clear search history** in Settings |
